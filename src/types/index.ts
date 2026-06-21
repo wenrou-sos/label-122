@@ -99,3 +99,55 @@ export interface SymptomMeta {
   icon: string;
   color: string;
 }
+
+export type CyclePhase = 'premenstrual' | 'menstrual' | 'postmenstrual' | 'unknown';
+
+export interface SymptomPhaseData {
+  phase: CyclePhase;
+  phaseLabel: string;
+  avgSeverity: number;
+  occurrenceRate: number;
+  sampleCount: number;
+}
+
+export interface SymptomPhaseAnalysis {
+  symptomKey: SymptomKey;
+  symptomLabel: string;
+  phases: SymptomPhaseData[];
+  highestPhase: CyclePhase;
+  highestPhaseLabel: string;
+}
+
+export interface TagSymptomCorrelation {
+  tagId: string;
+  tagLabel: string;
+  tagIcon: string;
+  symptomKey: SymptomKey;
+  symptomLabel: string;
+  withTagAvg: number;
+  withoutTagAvg: number;
+  diff: number;
+  correlation: 'strong-positive' | 'positive' | 'neutral' | 'negative' | 'strong-negative';
+  sampleWithTag: number;
+  sampleWithoutTag: number;
+}
+
+export interface MonthlySymptomPoint {
+  month: string;
+  monthLabel: string;
+  avgSeverity: number;
+  occurrenceRate: number;
+  sampleCount: number;
+}
+
+export interface MonthlySymptomTrend {
+  symptomKey: SymptomKey;
+  symptomLabel: string;
+  symptomColor: string;
+  symptomIcon: string;
+  points: MonthlySymptomPoint[];
+  trend: 'improving' | 'stable' | 'worsening';
+  overallAvg: number;
+  recent3Avg: number;
+  earlier3Avg: number;
+}

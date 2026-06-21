@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { useRouter } from 'vue-router';
 import {
   ChevronLeft,
   ChevronRight,
@@ -8,8 +9,11 @@ import {
   Thermometer,
   Target,
   LineChart,
+  Brain,
 } from 'lucide-vue-next';
 import type { ViewMode } from '@/types';
+
+const router = useRouter();
 
 const props = defineProps<{
   year: number;
@@ -99,6 +103,13 @@ const isCalendarMode = computed(
           <LineChart :size="17" />
         </button>
       </div>
+      <button
+        class="patterns-btn"
+        @click="router.push('/patterns')"
+        title="我的规律"
+      >
+        <Brain :size="16" />
+      </button>
       <button v-if="isCalendarMode" class="nav-btn" @click="emit('next')">
         <ChevronRight :size="24" stroke-width="2.4" color="#6a6473" />
       </button>
@@ -215,6 +226,23 @@ const isCalendarMode = computed(
     background: linear-gradient(135deg, #ff6b9d 0%, #f64e8b 100%);
     color: white;
     box-shadow: 0 2px 8px rgba(255, 107, 157, 0.35);
+  }
+}
+.patterns-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  background: linear-gradient(135deg, #9D4EDD 0%, #7B2CBF 100%);
+  box-shadow: 0 2px 8px rgba(157, 78, 221, 0.35);
+  margin-right: 4px;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.9);
   }
 }
 </style>
