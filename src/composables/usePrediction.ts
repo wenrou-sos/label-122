@@ -1,10 +1,12 @@
 import { computed } from 'vue';
 import type { PredictionResult } from '@/types';
 import { usePeriodStore } from '@/stores/period';
-import { addDays, parseDate, formatDate, dayjs } from '@/utils/date';
+import { useOvulationDetection } from '@/composables/useOvulationDetection';
+import { addDays, parseDate, formatDate, dayjs, isSameDay } from '@/utils/date';
 
 export const usePrediction = () => {
   const store = usePeriodStore();
+  const { ovulationFromTemp } = useOvulationDetection();
 
   const prediction = computed<PredictionResult>(() => {
     const { avgCycleLength, avgPeriodDuration, lastPeriodStart } = store.settings;
@@ -61,7 +63,14 @@ export const usePrediction = () => {
     const periodErrorStart = addDays(nextPeriodStart, -2);
     const periodErrorEnd = addDays(nextPeriodEnd, 2);
 
-    const ovulationDay = addDays(nextPeriodStart, -14);
+    const predictedOvulationDay = addDays(nextPeriodStart, -14);
+    const tempOvulationDate = ovulationFromTemp.value.ovulationDate;
+
+    const ovulationDay = tempOvulationDate
+      ? parseDate(tempOvulationDate)
+      : predictedOvulationDay;
+    const ovulationMethod: 'predicted' | 'temp' = tempOvulationDate ? 'temp' : 'predicted';
+
     const ovulationStart = addDays(ovulationDay, -5);
     const ovulationEnd = addDays(ovulationDay, 4);
     const ovulationErrorStart = addDays(ovulationStart, -1);
@@ -74,6 +83,7 @@ export const usePrediction = () => {
       ovulationStart: formatDate(ovulationStart),
       ovulationEnd: formatDate(ovulationEnd),
       ovulationDay: formatDate(ovulationDay),
+      ovulationMethod,
       ovulationErrorRange: [formatDate(ovulationErrorStart), formatDate(ovulationErrorEnd)],
     };
   });

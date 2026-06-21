@@ -19,6 +19,15 @@ const m = computed(() => props.cell.markers);
 const flowStyle = computed(() => ({
   background: getFlowColor(m.value.flowLevel),
 }));
+
+const tempColor = computed(() => {
+  const t = m.value.basalTemp;
+  if (t === undefined) return 'transparent';
+  if (t < 36.3) return '#4CC9F0';
+  if (t < 36.6) return '#4895EF';
+  if (t < 36.8) return '#F72585';
+  return '#E63946';
+});
 </script>
 
 <template>
@@ -53,6 +62,11 @@ const flowStyle = computed(() => ({
     <div class="cell-content">
       <div class="cell-day" :class="{ 'today-ring': cell.isToday && !showHeatmap }">
         {{ cell.day }}
+        <div
+          v-if="!showHeatmap && m.basalTemp !== undefined"
+          class="temp-dot"
+          :style="{ background: tempColor }"
+        />
       </div>
 
       <div v-if="!showHeatmap" class="cell-markers">
@@ -172,10 +186,20 @@ const flowStyle = computed(() => ({
   font-weight: 500;
   line-height: 1;
   padding-top: 4px;
+  position: relative;
 
   .is-today & {
     font-weight: 700;
   }
+}
+.temp-dot {
+  position: absolute;
+  top: 2px;
+  right: -4px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.15);
 }
 
 .today-ring {

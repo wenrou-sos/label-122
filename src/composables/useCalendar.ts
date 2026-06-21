@@ -2,6 +2,7 @@ import { computed } from 'vue';
 import type { MonthStats } from '@/types';
 import { usePeriodStore } from '@/stores/period';
 import { usePrediction } from '@/composables/usePrediction';
+import { useOvulationDetection } from '@/composables/useOvulationDetection';
 import { buildMonthCells, isInRange, isSameDay, parseDate, addDays, diffDays } from '@/utils/date';
 
 type CalendarCell = { date: string; day: number; isCurrentMonth: boolean; isToday: boolean; isFuture: boolean; weekday: number };
@@ -15,12 +16,15 @@ export type CalendarCellWithMarkers = CalendarCell & {
     isPredictedPeriodStart: boolean;
     isPeriodErrorEdge: boolean;
     symptomTotalScore: number;
+    basalTemp?: number;
+    isTempOvulationDay: boolean;
   };
 };
 
 export const useCalendar = (year: () => number, month: () => number) => {
   const store = usePeriodStore();
   const { prediction } = usePrediction();
+  const { isTempOvulationDay } = useOvulationDetection();
 
   const cells = computed<CalendarCellWithMarkers[]>(() => {
     const raw = buildMonthCells(year(), month());
@@ -45,14 +49,22 @@ export const useCalendar = (year: () => number, month: () => number) => {
         ...cell,
         markers: {
           flowLevel,
-          hasRecord: !!record && (flowLevel > 0 || symptomTotalScore > 0 || (record.tags?.length ?? 0) > 0),
+          hasRecord:
+            !!record &&
+            (flowLevel > 0 ||
+              symptomTotalScore > 0 ||
+              (record.tags?.length ?? 0) > 0 ||
+              record.basalTemp !== undefined),
           isOvulationDay: isSameDay(cell.date, pred.ovulationDay),
           isOvulationWindow: inOvuWindow,
           isPredictedPeriod: inPredPeriod,
           isPredictedPeriodStart: isSameDay(cell.date, pred.nextPeriodStart),
           isPeriodErrorEdge:
-            isSameDay(cell.date, periodRange[0]) || isSameDay(cell.date, periodRange[1]),
+            isSameDay(cell.date, periodRange[0]) ||
+            isSameDay(cell.date, periodRange[1]),
           symptomTotalScore,
+          basalTemp: record?.basalTemp,
+          isTempOvulationDay: isTempOvulationDay(cell.date),
         },
       };
     });

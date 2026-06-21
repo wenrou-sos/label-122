@@ -18,6 +18,7 @@ export interface DayRecord {
   bloodColor?: BloodColorId;
   symptoms: Symptoms;
   tags: string[];
+  basalTemp?: number;
   updatedAt: number;
 }
 
@@ -43,6 +44,8 @@ export interface CycleHistoryItem {
   duration: number;
   cycleLength: number | null;
   avgPainLevel: number;
+  ovulationDate?: string;
+  ovulationMethod?: 'predicted' | 'temp';
 }
 
 export interface PredictionResult {
@@ -52,6 +55,7 @@ export interface PredictionResult {
   ovulationStart: string;
   ovulationEnd: string;
   ovulationDay: string;
+  ovulationMethod: 'predicted' | 'temp';
   ovulationErrorRange: [string, string];
 }
 
@@ -64,6 +68,8 @@ export interface DayMarkers {
   isPredictedPeriodStart: boolean;
   isPeriodErrorEdge: boolean;
   symptomTotalScore: number;
+  basalTemp?: number;
+  isTempOvulationDay: boolean;
 }
 
 export interface MonthStats {
@@ -79,7 +85,7 @@ export interface MonthStats {
   cycleRegularity: 'improved' | 'stable' | 'declined';
 }
 
-export type ViewMode = 'calendar' | 'heatmap' | 'trend';
+export type ViewMode = 'calendar' | 'heatmap' | 'trend' | 'temp';
 
 export interface PresetTag {
   id: string;

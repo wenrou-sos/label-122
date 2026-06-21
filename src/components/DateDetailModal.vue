@@ -35,6 +35,7 @@ const symptoms = ref<Symptoms>({
   mood: 0,
 });
 const tags = ref<string[]>([]);
+const basalTemp = ref<number | undefined>(undefined);
 
 const dateLabel = computed(() => {
   const d = parseDate(props.date);
@@ -53,7 +54,8 @@ const hasAnyInput = computed(
     flowLevel.value > 0 ||
     !!bloodColor.value ||
     Object.values(symptoms.value).some((v) => v > 0) ||
-    tags.value.length > 0,
+    tags.value.length > 0 ||
+    basalTemp.value !== undefined,
 );
 
 const flowHint = computed(() => {
@@ -70,6 +72,22 @@ const activeTags = computed(() =>
   PRESET_TAGS.filter((t) => tags.value.includes(t.id)),
 );
 
+const quickTemps = [36.1, 36.3, 36.5, 36.7, 36.9, 37.1];
+
+const tempDisplay = computed(() => {
+  if (basalTemp.value === undefined) return '—';
+  return basalTemp.value.toFixed(2);
+});
+
+const adjustTemp = (delta: number) => {
+  if (basalTemp.value === undefined) {
+    basalTemp.value = delta > 0 ? 36.5 : 36.5;
+    return;
+  }
+  const next = Math.round((basalTemp.value + delta) * 100) / 100;
+  basalTemp.value = Math.min(37.5, Math.max(36, next));
+};
+
 watch(
   () => [props.visible, props.date] as const,
   ([vis, date]) => {
@@ -85,6 +103,7 @@ watch(
         mood: r?.symptoms.mood ?? 0,
       };
       tags.value = [...(r?.tags ?? [])];
+      basalTemp.value = r?.basalTemp;
     }
   },
   { immediate: true },
@@ -101,6 +120,7 @@ const handleSave = async () => {
       bloodColor: bloodColor.value,
       symptoms: symptoms.value,
       tags: tags.value,
+      basalTemp: basalTemp.value,
     });
     showToast({ type: 'success', message: '已保存记录', position: 'middle' });
     emit('saved');
@@ -187,6 +207,54 @@ const handleClear = () => {
             </span>
           </div>
           <TagSelector v-model="tags" />
+        </section>
+
+        <section class="section">
+          <div class="section-title">
+            <span class="title-dot" style="background:#FF8FA3" />
+            <span>基础体温</span>
+            <span v-if="basalTemp" class="title-value">
+              · {{ basalTemp.toFixed(2) }} ℃
+            </span>
+          </div>
+          <div class="temp-input-row">
+            <button
+              class="temp-btn"
+              :disabled="!basalTemp || basalTemp <= 36"
+              @click="adjustTemp(-0.05)"
+            >
+              −
+            </button>
+            <div class="temp-display">
+              <span class="temp-value">{{ tempDisplay }}</span>
+              <span class="temp-unit">℃</span>
+            </div>
+            <button
+              class="temp-btn"
+              :disabled="!basalTemp || basalTemp >= 37.5"
+              @click="adjustTemp(0.05)"
+            >
+              +
+            </button>
+          </div>
+          <div class="temp-quick-row">
+            <button
+              v-for="t in quickTemps"
+              :key="t"
+              class="temp-quick-btn"
+              :class="{ active: basalTemp === t }"
+              @click="basalTemp = t"
+            >
+              {{ t.toFixed(1) }}
+            </button>
+          </div>
+          <button v-if="basalTemp" class="temp-clear-btn" @click="basalTemp = undefined">
+            清除体温记录
+          </button>
+          <div class="hint-row" style="background: rgba(255, 143, 163, 0.06);">
+            <span class="hint-label">小提示：</span>
+            <span class="hint-value" style="color:#ff8fa3">清晨醒来未起床时测量最准确</span>
+          </div>
         </section>
       </div>
 
@@ -343,5 +411,90 @@ const handleClear = () => {
   align-items: center;
   justify-content: center;
   gap: 6px;
+}
+
+.temp-input-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  padding: 12px 0;
+}
+.temp-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(255, 143, 163, 0.1);
+  color: #ff8fa3;
+  font-size: 24px;
+  font-weight: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+
+  &:active:not(:disabled) {
+    transform: scale(0.92);
+    background: rgba(255, 143, 163, 0.2);
+  }
+  &:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+}
+.temp-display {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-width: 120px;
+  justify-content: center;
+}
+.temp-value {
+  font-size: 36px;
+  font-weight: 700;
+  color: #2d2d34;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.temp-unit {
+  font-size: 16px;
+  color: #9e9aa8;
+  font-weight: 500;
+}
+.temp-quick-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.temp-quick-btn {
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 143, 163, 0.08);
+  color: #ff8fa3;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+
+  &:active {
+    transform: scale(0.95);
+  }
+  &.active {
+    background: #ff8fa3;
+    color: white;
+  }
+}
+.temp-clear-btn {
+  align-self: center;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  color: #9e9aa8;
+  background: rgba(158, 154, 168, 0.08);
+  transition: all 0.2s ease;
+
+  &:active {
+    background: rgba(158, 154, 168, 0.15);
+  }
 }
 </style>

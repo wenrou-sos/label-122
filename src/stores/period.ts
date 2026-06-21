@@ -95,6 +95,9 @@ export const usePeriodStore = defineStore('period', () => {
   const setTags = (date: string, tags: string[]): DayRecord =>
     upsertRecord(date, { tags });
 
+  const setBasalTemp = (date: string, temp: number | undefined): DayRecord =>
+    upsertRecord(date, { basalTemp: temp });
+
   const setSettings = (patch: Partial<AppSettings>): void => {
     settings.value = { ...settings.value, ...patch };
   };
@@ -190,6 +193,7 @@ export const usePeriodStore = defineStore('period', () => {
     setSymptoms,
     toggleTag,
     setTags,
+    setBasalTemp,
     setSettings,
   };
 });
