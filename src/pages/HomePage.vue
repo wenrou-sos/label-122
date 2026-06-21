@@ -5,6 +5,7 @@ import AppHeader from '@/components/AppHeader.vue';
 import MonthOverview from '@/components/MonthOverview.vue';
 import CalendarGrid from '@/components/CalendarGrid.vue';
 import HeatmapGrid from '@/components/HeatmapGrid.vue';
+import HistoryTrend from '@/components/HistoryTrend.vue';
 import DateDetailModal from '@/components/DateDetailModal.vue';
 import { usePeriodStore } from '@/stores/period';
 import { useCalendar } from '@/composables/useCalendar';
@@ -95,9 +96,9 @@ const predictionCard = computed(() => {
 
     <main class="page-body">
       <div class="content-stack">
-        <MonthOverview :stats="monthStats" />
+        <MonthOverview v-if="viewMode !== 'trend'" :stats="monthStats" />
 
-        <div class="prediction-tip glass-card">
+        <div v-if="viewMode !== 'trend'" class="prediction-tip glass-card">
           <div class="tip-left">
             <div class="tip-icon">
               <Sparkles :size="18" color="#f64e8b" />
@@ -126,7 +127,7 @@ const predictionCard = computed(() => {
         </div>
 
         <Transition
-          :name="viewMode === 'calendar' ? 'slide-right' : 'slide-left'"
+          :name="viewMode === 'calendar' ? 'slide-right' : viewMode === 'trend' ? 'slide-left' : 'slide-left'"
           mode="out-in"
         >
           <CalendarGrid
@@ -136,14 +137,18 @@ const predictionCard = computed(() => {
             @select="handleSelectDate"
           />
           <HeatmapGrid
-            v-else
+            v-else-if="viewMode === 'heatmap'"
             :key="'heat-' + viewTransitionKey"
             :cells="cells"
             @select="handleSelectDate"
           />
+          <HistoryTrend
+            v-else
+            :key="'trend-' + viewTransitionKey"
+          />
         </Transition>
 
-        <div class="legend-card glass-card">
+        <div v-if="viewMode !== 'trend'" class="legend-card glass-card">
           <div class="legend-title">图例说明</div>
           <div class="legend-grid">
             <div class="legend-entry">

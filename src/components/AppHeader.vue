@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Thermometer, Target } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Thermometer, Target, LineChart } from 'lucide-vue-next';
 import type { ViewMode } from '@/types';
 
 const props = defineProps<{
@@ -17,21 +17,31 @@ const emit = defineEmits<{
 }>();
 
 const monthLabel = computed(() => `${props.year}年${props.month + 1}月`);
+const isTrendMode = computed(() => props.viewMode === 'trend');
+
 </script>
 
 <template>
   <header class="app-header">
     <div class="header-left">
-      <button class="nav-btn" @click="emit('prev')">
+      <button v-if="!isTrendMode" class="nav-btn" @click="emit('prev')">
         <ChevronLeft :size="24" stroke-width="2.4" color="#6a6473" />
       </button>
+      <div v-else class="nav-btn-placeholder" />
     </div>
 
-    <div class="header-center" @click="emit('today')">
+    <div v-if="!isTrendMode" class="header-center" @click="emit('today')">
       <div class="month-label">{{ monthLabel }}</div>
       <div class="today-tag">
         <Target :size="10" />
         <span>回到今天</span>
+      </div>
+    </div>
+    <div v-else class="header-center">
+      <div class="month-label">历史趋势</div>
+      <div class="today-tag trend-tag">
+        <LineChart :size="10" />
+        <span>周期规律分析</span>
       </div>
     </div>
 
@@ -53,10 +63,19 @@ const monthLabel = computed(() => `${props.year}年${props.month + 1}月`);
         >
           <Thermometer :size="18" />
         </button>
+        <button
+          class="view-btn"
+          :class="{ active: viewMode === 'trend' }"
+          @click="emit('change-view', 'trend')"
+          title="历史趋势"
+        >
+          <LineChart :size="18" />
+        </button>
       </div>
-      <button class="nav-btn" @click="emit('next')">
+      <button v-if="!isTrendMode" class="nav-btn" @click="emit('next')">
         <ChevronRight :size="24" stroke-width="2.4" color="#6a6473" />
       </button>
+      <div v-else class="nav-btn-placeholder" />
     </div>
   </header>
 </template>
@@ -100,6 +119,10 @@ const monthLabel = computed(() => `${props.year}年${props.month + 1}月`);
     transform: scale(0.92);
     background: rgba(255, 255, 255, 1);
   }
+}
+.nav-btn-placeholder {
+  width: 40px;
+  height: 40px;
 }
 .header-center {
   flex: 1;

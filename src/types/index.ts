@@ -79,7 +79,7 @@ export interface MonthStats {
   cycleRegularity: 'improved' | 'stable' | 'declined';
 }
 
-export type ViewMode = 'calendar' | 'heatmap';
+export type ViewMode = 'calendar' | 'heatmap' | 'trend';
 
 export interface PresetTag {
   id: string;
