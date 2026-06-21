@@ -44,7 +44,10 @@ export const STORAGE_KEYS = {
   RECORDS: 'period:records',
   SETTINGS: 'period:settings',
   HISTORY: 'period:history',
+  VERSION: 'period:storage_version',
 } as const;
+
+export const STORAGE_VERSION = 'v1';
 
 export const DEFAULT_SETTINGS = {
   avgCycleLength: 28,

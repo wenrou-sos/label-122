@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed } from 'vue';
 import { Droplets, Wind, Sparkles, AlertCircle } from 'lucide-vue-next';
 import AppHeader from '@/components/AppHeader.vue';
 import MonthOverview from '@/components/MonthOverview.vue';
@@ -65,10 +65,6 @@ const changeView = (mode: ViewMode) => {
   viewTransitionKey.value++;
   viewMode.value = mode;
 };
-
-onMounted(() => {
-  store.seedMockDataIfEmpty();
-});
 
 const predictionCard = computed(() => {
   const p = prediction.value;

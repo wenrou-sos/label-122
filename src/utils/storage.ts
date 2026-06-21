@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, STORAGE_KEYS } from '@/constants';
+import { DEFAULT_SETTINGS, STORAGE_KEYS, STORAGE_VERSION } from '@/constants';
 import type { DayRecordMap, AppSettings, CycleHistoryItem } from '@/types';
 
 const safeGet = <T>(key: string, fallback: T): T => {
@@ -20,6 +20,22 @@ const safeSet = <T>(key: string, value: T): boolean => {
     console.warn('[storage] 写入失败', key, err);
     return false;
   }
+};
+
+// 一次性数据迁移：当本地存储版本与当前版本不一致时，
+// 清空所有历史残留数据（含早期版本误写入的伪造健康数据），
+// 随后写入新版本号，避免重复清理。
+export const migrateStorage = (): void => {
+  const stored = safeGet<string>(STORAGE_KEYS.VERSION, '');
+  if (stored === STORAGE_VERSION) return;
+  try {
+    localStorage.removeItem(STORAGE_KEYS.RECORDS);
+    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
+    localStorage.removeItem(STORAGE_KEYS.HISTORY);
+  } catch (err) {
+    console.warn('[storage] 迁移清理失败', err);
+  }
+  safeSet(STORAGE_KEYS.VERSION, STORAGE_VERSION);
 };
 
 export const loadRecords = (): DayRecordMap =>

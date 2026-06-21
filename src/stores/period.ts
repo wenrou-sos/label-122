@@ -10,8 +10,8 @@ import type {
   Symptoms,
 } from '@/types';
 import { DEFAULT_SETTINGS } from '@/constants';
-import { loadRecords, saveRecords, loadSettings, saveSettings, loadHistory, saveHistory } from '@/utils/storage';
-import { todayStr, diffDays, addDays, parseDate, formatDate } from '@/utils/date';
+import { loadRecords, saveRecords, loadSettings, saveSettings, loadHistory, saveHistory, migrateStorage } from '@/utils/storage';
+import { diffDays, parseDate } from '@/utils/date';
 
 const EMPTY_SYMPTOMS: Symptoms = {
   cramp: 0,
@@ -22,6 +22,9 @@ const EMPTY_SYMPTOMS: Symptoms = {
 };
 
 export const usePeriodStore = defineStore('period', () => {
+  // 初始化前先执行一次性数据迁移，清理早期版本残留的伪造健康数据
+  migrateStorage();
+
   const records = ref<DayRecordMap>(loadRecords());
   const settings = ref<AppSettings>(loadSettings());
   const history = ref<CycleHistoryItem[]>(loadHistory());
@@ -53,26 +56,15 @@ export const usePeriodStore = defineStore('period', () => {
     merged.tags = baseTags;
     records.value = { ...records.value, [date]: merged };
 
-    if (merged.flowLevel > 0 && !settings.value.lastPeriodStart) {
-      settings.value.lastPeriodStart = findLastPeriodStart(date);
-    } else if (merged.flowLevel > 0) {
-      const currentStart = parseDate(settings.value.lastPeriodStart);
-      const d = parseDate(date);
-      if (d.isBefore(currentStart, 'day')) {
-        settings.value.lastPeriodStart = findLastPeriodStart(date);
-      } else if (d.diff(currentStart, 'day') > settings.value.avgCycleLength) {
-        settings.value.lastPeriodStart = findLastPeriodStart(date);
-      }
-    }
-
-    refreshHistory();
+    syncDerivedState();
     return merged;
   };
 
   const clearRecord = (date: string): void => {
     const { [date]: _removed, ...rest } = records.value;
     records.value = rest;
-    refreshHistory();
+    // 清空记录后立即重算派生状态，确保预测不再沿用已删除的周期起点
+    syncDerivedState();
   };
 
   const setFlowLevel = (date: string, level: FlowLevel): DayRecord =>
@@ -107,22 +99,23 @@ export const usePeriodStore = defineStore('period', () => {
     settings.value = { ...settings.value, ...patch };
   };
 
-  const findLastPeriodStart = (fromDate: string): string => {
-    const sorted = Object.keys(records.value)
+  // 计算最近一次经期的起始日：将所有 flow>0 的日期按升序排列，
+  // 相邻间隔 <= 2 天视为同一周期，返回最后一组（最近一次）的起始日；
+  // 没有任何经期记录时返回空字符串
+  const computeLatestPeriodStart = (): string => {
+    const flowDates = Object.keys(records.value)
       .filter((k) => (records.value[k]?.flowLevel ?? 0) > 0)
-      .sort((a, b) => (a < b ? 1 : -1));
+      .sort();
+    if (flowDates.length === 0) return '';
 
-    if (sorted.length === 0) return fromDate;
-
-    let start = sorted[0];
-    for (const d of sorted) {
-      if (diffDays(d, start) <= 1) {
-        start = d;
-      } else {
-        break;
+    let lastGroupStart = flowDates[0];
+    for (let i = 1; i < flowDates.length; i++) {
+      const gap = diffDays(flowDates[i - 1], flowDates[i]);
+      if (gap > 2) {
+        lastGroupStart = flowDates[i];
       }
     }
-    return start;
+    return lastGroupStart;
   };
 
   const detectCyclesFromRecords = (): CycleHistoryItem[] => {
@@ -167,102 +160,19 @@ export const usePeriodStore = defineStore('period', () => {
     return result;
   };
 
-  const refreshHistory = (): void => {
+  // 同步派生状态：历史周期汇总 + 最近经期起始日
+  const syncDerivedState = (): void => {
     history.value = detectCyclesFromRecords();
+    settings.value.lastPeriodStart = computeLatestPeriodStart();
   };
+
+  // 初始化时立即同步派生状态，确保 lastPeriodStart 与 history
+  // 始终与真实记录保持一致，避免预测沿用陈旧的周期起点
+  syncDerivedState();
 
   const hasAnyRecord = computed(
     () => Object.keys(records.value).length > 0,
   );
-
-  const seedMockDataIfEmpty = (): void => {
-    if (hasAnyRecord.value) return;
-
-    const today = parseDate(todayStr());
-    const cycleStart = addDays(today, -3);
-    settings.value.lastPeriodStart = formatDate(cycleStart);
-    settings.value.avgCycleLength = 28;
-    settings.value.avgPeriodDuration = 5;
-
-    const mockList: { date: string; patch: Partial<DayRecord> }[] = [];
-
-    for (let i = 0; i < 5; i++) {
-      const d = addDays(cycleStart, i - 28);
-      mockList.push({
-        date: formatDate(d),
-        patch: {
-          flowLevel: (i === 0 || i === 4 ? 1 : (i === 1 || i === 3 ? 2 : 3)) as FlowLevel,
-          bloodColor: ['bright', 'dark', 'bright', 'brown', 'pink'][i] as BloodColorId,
-          symptoms: {
-            cramp: [8, 6, 4, 3, 2][i],
-            backache: [5, 6, 4, 2, 1][i],
-            headache: [3, 2, 1, 0, 0][i],
-            breast: [4, 3, 2, 1, 0][i],
-            mood: [6, 5, 4, 2, 1][i],
-          },
-          tags: i === 0
-            ? ['painkiller', 'bad_sleep']
-            : i === 1
-              ? ['ginger_tea', 'stress']
-              : i === 2
-                ? ['ginger_tea']
-                : i === 3
-                  ? ['happy']
-                  : ['exercise'],
-        },
-      });
-    }
-
-    for (let i = 0; i < 5; i++) {
-      const d = addDays(cycleStart, i);
-      mockList.push({
-        date: formatDate(d),
-        patch: {
-          flowLevel: (i === 0 || i === 4 ? 1 : (i === 1 || i === 3 ? 2 : 3)) as FlowLevel,
-          bloodColor: ['bright', 'dark', 'bright', 'brown', 'pink'][i] as BloodColorId,
-          symptoms: {
-            cramp: [7, 5, 3, 2, 1][i],
-            backache: [4, 5, 3, 2, 1][i],
-            headache: [2, 3, 1, 0, 0][i],
-            breast: [3, 2, 2, 1, 0][i],
-            mood: [5, 4, 3, 1, 0][i],
-          },
-          tags: i === 0
-            ? ['painkiller', 'ginger_tea']
-            : i === 1
-              ? ['ginger_tea', 'bad_sleep']
-              : i === 2
-                ? ['cold']
-                : i === 3
-                  ? ['spicy']
-                  : ['happy'],
-        },
-      });
-    }
-
-    for (let i = -18; i <= -10; i++) {
-      const d = addDays(cycleStart, i);
-      if (Math.abs(i) % 3 === 0) {
-        mockList.push({
-          date: formatDate(d),
-          patch: {
-            flowLevel: 0,
-            symptoms: {
-              cramp: 1,
-              backache: 2,
-              headache: 0,
-              breast: 5,
-              mood: 3,
-            },
-            tags: ['stress'],
-          },
-        });
-      }
-    }
-
-    mockList.forEach(({ date, patch }) => upsertRecord(date, patch));
-    refreshHistory();
-  };
 
   return {
     records,
@@ -281,8 +191,5 @@ export const usePeriodStore = defineStore('period', () => {
     toggleTag,
     setTags,
     setSettings,
-
-    seedMockDataIfEmpty,
-    refreshHistory,
   };
 });
