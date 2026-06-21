@@ -20,14 +20,17 @@ const {
   monthlySymptomTrends,
   hasEnoughData,
   hasCycleData,
+  hasReliablePhaseData,
   hasTagCorrelationData,
+  phaseSampleCounts,
+  totalFlowDays,
   MONTH_RANGE,
 } = usePatternAnalysis();
 
 const topInsights = computed(() => {
   const insights: { icon: string; text: string; type: 'tip' | 'warn' | 'info' }[] = [];
 
-  if (hasCycleData.value) {
+  if (hasReliablePhaseData.value) {
     const phaseAnalysis = symptomPhaseAnalysis.value;
     const cramp = phaseAnalysis.find((p) => p.symptomKey === 'cramp');
     if (cramp && cramp.highestPhase === 'menstrual') {
@@ -168,7 +171,7 @@ const goBack = () => {
             </div>
           </section>
 
-          <section v-if="hasCycleData" class="chart-card glass-card">
+          <section v-if="hasReliablePhaseData" class="chart-card glass-card">
             <SymptomPhaseChart :data="symptomPhaseAnalysis" />
           </section>
 
@@ -177,8 +180,13 @@ const goBack = () => {
               <Info :size="20" color="#9D4EDD" />
             </div>
             <div class="hint-content">
-              <div class="hint-title">还需更多经期数据</div>
-              <div class="hint-desc">至少记录 1 次完整经期，即可查看症状在不同阶段的高发规律</div>
+              <div class="hint-title">还需更多数据</div>
+              <div class="hint-desc">至少记录 2 次完整周期（或累计经期 ≥ 3 天），且经前、经期、经后都有记录，才能进行阶段对比分析</div>
+              <div v-if="hasCycleData" class="hint-progress">
+                <span class="progress-item">已记录经期: <b>{{ totalFlowDays }}</b> 天</span>
+                <span class="progress-item">经前记录: <b>{{ phaseSampleCounts.premenstrual }}</b> 天</span>
+                <span class="progress-item">经后记录: <b>{{ phaseSampleCounts.postmenstrual }}</b> 天</span>
+              </div>
             </div>
           </section>
 
@@ -437,6 +445,23 @@ const goBack = () => {
   font-size: 11px;
   color: #9e9aa8;
   line-height: 1.5;
+}
+.hint-progress {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(157, 78, 221, 0.15);
+}
+.progress-item {
+  font-size: 10px;
+  color: #9e9aa8;
+  font-weight: 500;
+}
+.progress-item b {
+  color: #9d4edd;
+  font-weight: 700;
 }
 .disclaimer-card {
   display: inline-flex;

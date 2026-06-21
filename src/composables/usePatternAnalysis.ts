@@ -21,26 +21,46 @@ const PHASE_LABELS: Record<CyclePhase, string> = {
 const MONTH_RANGE = 6;
 const PREMENSTRUAL_DAYS = 7;
 
+const TYPICAL_CYCLE_DAYS = 28;
+
 const getCyclePhase = (date: string, cycles: { start: string; end: string }[]): CyclePhase => {
   const d = parseDate(date);
-  for (let i = cycles.length - 1; i >= 0; i--) {
+  const n = cycles.length;
+  if (n === 0) return 'unknown';
+
+  for (let i = 0; i < n; i++) {
     const cycleStart = parseDate(cycles[i].start);
     const cycleEnd = parseDate(cycles[i].end);
-    if (d.isBefore(cycleStart, 'day') && d.isAfter(cycleStart.subtract(PREMENSTRUAL_DAYS + 1, 'day'), 'day')) {
-      return 'premenstrual';
-    }
+
     if ((d.isSame(cycleStart, 'day') || d.isAfter(cycleStart, 'day')) &&
         (d.isSame(cycleEnd, 'day') || d.isBefore(cycleEnd, 'day'))) {
       return 'menstrual';
     }
-    if (d.isAfter(cycleEnd, 'day') && d.isBefore(cycleStart.add(PREMENSTRUAL_DAYS, 'day'), 'day') && i < cycles.length - 1) {
-      const nextCycleStart = parseDate(cycles[i + 1].start);
-      const preStart = nextCycleStart.subtract(PREMENSTRUAL_DAYS, 'day');
-      if (d.isBefore(preStart, 'day')) {
+
+    if (d.isBefore(cycleStart, 'day') && d.isAfter(cycleStart.subtract(PREMENSTRUAL_DAYS + 1, 'day'), 'day')) {
+      return 'premenstrual';
+    }
+
+    if (d.isAfter(cycleEnd, 'day')) {
+      let postEnd: dayjs.Dayjs;
+      if (i < n - 1) {
+        const nextStart = parseDate(cycles[i + 1].start);
+        postEnd = nextStart.subtract(PREMENSTRUAL_DAYS, 'day');
+      } else {
+        const cycleLen = Math.max(
+          cycleEnd.diff(cycleStart, 'day') + 1,
+          5,
+        );
+        const remaining = Math.max(TYPICAL_CYCLE_DAYS - cycleLen - PREMENSTRUAL_DAYS, 7);
+        postEnd = cycleEnd.add(remaining, 'day');
+      }
+
+      if (d.isSame(postEnd, 'day') || d.isBefore(postEnd, 'day')) {
         return 'postmenstrual';
       }
     }
   }
+
   return 'unknown';
 };
 
@@ -263,6 +283,39 @@ export const usePatternAnalysis = () => {
     });
   });
 
+  const totalFlowDays = computed(() => {
+    return cycles.value.reduce((sum, c) => {
+      const days = diffDays(c.start, c.end) + 1;
+      return sum + days;
+    }, 0);
+  });
+
+  const phaseSampleCounts = computed(() => {
+    const counts: Record<CyclePhase, number> = {
+      premenstrual: 0,
+      menstrual: 0,
+      postmenstrual: 0,
+      unknown: 0,
+    };
+    for (const { date } of allRecords.value) {
+      const phase = getCyclePhase(date, cycles.value);
+      counts[phase]++;
+    }
+    return counts;
+  });
+
+  const hasReliablePhaseData = computed(() => {
+    const enoughCycles = cycles.value.length >= 2 || totalFlowDays.value >= 3;
+    if (!enoughCycles) return false;
+    const samples = phaseSampleCounts.value;
+    return (
+      samples.menstrual >= 2 &&
+      (samples.premenstrual + samples.postmenstrual) >= 3 &&
+      samples.premenstrual >= 1 &&
+      samples.postmenstrual >= 1
+    );
+  });
+
   const hasEnoughData = computed(() => {
     return allRecords.value.length >= 10;
   });
@@ -281,7 +334,10 @@ export const usePatternAnalysis = () => {
     monthlySymptomTrends,
     hasEnoughData,
     hasCycleData,
+    hasReliablePhaseData,
     hasTagCorrelationData,
+    totalFlowDays,
+    phaseSampleCounts,
     MONTH_RANGE,
     PREMENSTRUAL_DAYS,
   };

@@ -131,10 +131,13 @@ const trendColor = (t: MonthlySymptomTrend['trend']) => {
         <template v-for="s in data" :key="s.symptomKey">
           <path
             v-if="s.points.filter(p => p.sampleCount > 0).length >= 2"
-            :d="buildSmoothPath(s.points.map((p, i) => ({
-              x: xFor(i, s.points.length),
-              y: yFor(p.avgSeverity),
-            })))"
+            :d="buildSmoothPath(s.points
+              .map((p, i) => ({ p, i }))
+              .filter(({ p }) => p.sampleCount > 0)
+              .map(({ p, i }) => ({
+                x: xFor(i, s.points.length),
+                y: yFor(p.avgSeverity),
+              })))"
             fill="none"
             :stroke="s.symptomColor"
             stroke-width="2"
