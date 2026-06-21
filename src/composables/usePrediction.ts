@@ -11,15 +11,18 @@ export const usePrediction = () => {
     const cycles = store.history;
 
     let cycle: number = avgCycleLength;
-    if (cycles.length >= 3) {
-      const [last, prev, prev2] = [...cycles].reverse();
+    const validCycles = cycles.filter((c) => c.cycleLength !== null);
+    if (validCycles.length >= 3) {
+      const [last, prev, prev2] = [...validCycles].reverse();
       cycle =
-        last.cycleLength * 0.5 + prev.cycleLength * 0.3 + prev2.cycleLength * 0.2;
-    } else if (cycles.length === 2) {
-      const [last, prev] = [...cycles].reverse();
-      cycle = last.cycleLength * 0.6 + prev.cycleLength * 0.4;
-    } else if (cycles.length === 1) {
-      cycle = cycles[0].cycleLength;
+        (last.cycleLength as number) * 0.5 +
+        (prev.cycleLength as number) * 0.3 +
+        (prev2.cycleLength as number) * 0.2;
+    } else if (validCycles.length === 2) {
+      const [last, prev] = [...validCycles].reverse();
+      cycle = (last.cycleLength as number) * 0.6 + (prev.cycleLength as number) * 0.4;
+    } else if (validCycles.length === 1) {
+      cycle = validCycles[0].cycleLength as number;
     }
     cycle = Math.max(1, Math.round(cycle));
 

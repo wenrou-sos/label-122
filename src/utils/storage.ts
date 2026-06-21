@@ -22,19 +22,12 @@ const safeSet = <T>(key: string, value: T): boolean => {
   }
 };
 
-// 一次性数据迁移：当本地存储版本与当前版本不一致时，
-// 清空所有历史残留数据（含早期版本误写入的伪造健康数据），
-// 随后写入新版本号，避免重复清理。
+// 存储版本标记：当本地存储缺少版本号时，仅写入当前版本号，
+// 不清空任何已有数据，避免误删老用户的真实历史记录。
+// （早期版本自动播种 mock 数据的问题已通过移除 seedMockDataIfEmpty 从根源解决）
 export const migrateStorage = (): void => {
   const stored = safeGet<string>(STORAGE_KEYS.VERSION, '');
   if (stored === STORAGE_VERSION) return;
-  try {
-    localStorage.removeItem(STORAGE_KEYS.RECORDS);
-    localStorage.removeItem(STORAGE_KEYS.SETTINGS);
-    localStorage.removeItem(STORAGE_KEYS.HISTORY);
-  } catch (err) {
-    console.warn('[storage] 迁移清理失败', err);
-  }
   safeSet(STORAGE_KEYS.VERSION, STORAGE_VERSION);
 };
 

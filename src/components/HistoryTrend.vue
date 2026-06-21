@@ -13,7 +13,7 @@ import {
 import { useHistoryTrend } from '@/composables/useHistoryTrend';
 import type { TrendPoint } from '@/composables/useHistoryTrend';
 
-const { trendPoints, stats, hasEnoughData, MAX_POINTS } = useHistoryTrend();
+const { trendPoints, stats, hasEnoughCycleData, MONTH_RANGE } = useHistoryTrend();
 
 const SVG_W = 340;
 const SVG_H = 220;
@@ -30,9 +30,10 @@ const GRID_COLOR = 'rgba(158, 154, 168, 0.15)';
 const AXIS_COLOR = 'rgba(158, 154, 168, 0.5)';
 
 const cycleDomain = computed(() => {
-  const pts = trendPoints.value;
-  if (pts.length === 0) return { min: 24, max: 32 };
-  const values = pts.map((p) => p.cycleLength);
+  const values = trendPoints.value
+    .filter((p) => p.cycleLength !== null)
+    .map((p) => p.cycleLength as number);
+  if (values.length === 0) return { min: 24, max: 32 };
   const rawMin = Math.min(...values);
   const rawMax = Math.max(...values);
   const span = Math.max(3, rawMax - rawMin);
@@ -71,21 +72,25 @@ const buildSmoothPath = (pts: { x: number; y: number }[]): string => {
   return d;
 };
 
-const cycleLinePath = computed(() => {
-  const pts = trendPoints.value.map((p, i) => ({
-    x: xFor(i, trendPoints.value.length),
-    y: yCycleFor(p.cycleLength),
-  }));
-  return buildSmoothPath(pts);
-});
+const cyclePlotPoints = computed(() =>
+  trendPoints.value
+    .map((p, i) =>
+      p.cycleLength !== null
+        ? { x: xFor(i, trendPoints.value.length), y: yCycleFor(p.cycleLength) }
+        : null,
+    )
+    .filter((p): p is { x: number; y: number } => p !== null),
+);
 
-const painLinePath = computed(() => {
-  const pts = trendPoints.value.map((p, i) => ({
+const painPlotPoints = computed(() =>
+  trendPoints.value.map((p, i) => ({
     x: xFor(i, trendPoints.value.length),
     y: yPainFor(p.painScore),
-  }));
-  return buildSmoothPath(pts);
-});
+  })),
+);
+
+const cycleLinePath = computed(() => buildSmoothPath(cyclePlotPoints.value));
+const painLinePath = computed(() => buildSmoothPath(painPlotPoints.value));
 
 const cycleTickValues = computed(() => {
   const { min, max } = cycleDomain.value;
@@ -99,7 +104,7 @@ const cycleTickValues = computed(() => {
 const painTickValues = [0, 2, 5, 8, 10];
 
 const cycleTrendIcon = computed(() => {
-  if (!stats.value) return Minus;
+  if (!stats.value || stats.value.cycleCount < 2) return Minus;
   switch (stats.value.cycleTrend) {
     case 'longer':
       return TrendingUp;
@@ -111,7 +116,7 @@ const cycleTrendIcon = computed(() => {
 });
 
 const cycleTrendLabel = computed(() => {
-  if (!stats.value) return '数据不足';
+  if (!stats.value || stats.value.cycleCount < 2) return '数据不足';
   switch (stats.value.cycleTrend) {
     case 'longer':
       return '周期略长';
@@ -123,7 +128,7 @@ const cycleTrendLabel = computed(() => {
 });
 
 const cycleTrendColor = computed(() => {
-  if (!stats.value) return '#9e9aa8';
+  if (!stats.value || stats.value.cycleCount < 2) return '#9e9aa8';
   switch (stats.value.cycleTrend) {
     case 'longer':
       return '#f64e8b';
@@ -135,7 +140,7 @@ const cycleTrendColor = computed(() => {
 });
 
 const painTrendIcon = computed(() => {
-  if (!stats.value) return Minus;
+  if (!stats.value || stats.value.painCount < 2) return Minus;
   switch (stats.value.painTrend) {
     case 'higher':
       return TrendingUp;
@@ -147,7 +152,7 @@ const painTrendIcon = computed(() => {
 });
 
 const painTrendLabel = computed(() => {
-  if (!stats.value) return '数据不足';
+  if (!stats.value || stats.value.painCount < 2) return '数据不足';
   switch (stats.value.painTrend) {
     case 'higher':
       return '疼痛上升';
@@ -159,7 +164,7 @@ const painTrendLabel = computed(() => {
 });
 
 const painTrendColor = computed(() => {
-  if (!stats.value) return '#9e9aa8';
+  if (!stats.value || stats.value.painCount < 2) return '#9e9aa8';
   switch (stats.value.painTrend) {
     case 'higher':
       return '#f64e8b';
@@ -170,8 +175,11 @@ const painTrendColor = computed(() => {
   }
 });
 
-const hovered = (p: TrendPoint) =>
-  `${p.fullLabel}\n周期 ${p.cycleLength}天 · 持续 ${p.duration}天\n痛经 ${p.painScore}分`;
+const hovered = (p: TrendPoint) => {
+  const cycleTxt =
+    p.cycleLength !== null ? `周期 ${p.cycleLength}天 · ` : '周期长度暂无 · ';
+  return `${p.fullLabel}\n${cycleTxt}持续 ${p.duration}天\n痛经 ${p.painScore}分`;
+};
 </script>
 
 <template>
@@ -232,7 +240,7 @@ const hovered = (p: TrendPoint) =>
         </div>
         <div class="empty-title">还没有足够的周期记录</div>
         <div class="empty-desc">
-          在日历中记录至少 2 次经期，这里会展示过去 {{ MAX_POINTS }} 个周期的趋势变化
+          在日历中记录至少 2 次经期，这里会展示过去 {{ MONTH_RANGE }} 个月的周期趋势变化
         </div>
       </div>
 
@@ -323,7 +331,7 @@ const hovered = (p: TrendPoint) =>
           </g>
 
           <path
-            v-if="hasEnoughData"
+            v-if="stats && stats.cycleCount >= 2"
             :d="cycleLinePath"
             fill="none"
             :stroke="CYCLE_COLOR"
@@ -332,7 +340,7 @@ const hovered = (p: TrendPoint) =>
             stroke-linejoin="round"
           />
           <path
-            v-if="hasEnoughData"
+            v-if="stats && stats.painCount >= 2"
             :d="painLinePath"
             fill="none"
             :stroke="PAIN_COLOR"
@@ -350,6 +358,7 @@ const hovered = (p: TrendPoint) =>
               :title="hovered(p)"
             >
               <circle
+                v-if="p.cycleLength !== null"
                 :cx="xFor(i, trendPoints.length)"
                 :cy="yCycleFor(p.cycleLength)"
                 r="4.5"
@@ -377,9 +386,14 @@ const hovered = (p: TrendPoint) =>
             cycleTrendLabel
           }}</span>
           <span class="trend-desc">
-            近 3 周期平均 {{ stats.recent3CycleAvg }} 天
-            <template v-if="stats.older3CycleAvg !== stats.recent3CycleAvg">
-              vs 之前 {{ stats.older3CycleAvg }} 天
+            <template v-if="stats.recent3CycleAvg !== null">
+              近期平均 {{ stats.recent3CycleAvg }} 天
+              <template v-if="stats.older3CycleAvg !== null && stats.older3CycleAvg !== stats.recent3CycleAvg">
+                vs 前期 {{ stats.older3CycleAvg }} 天
+              </template>
+            </template>
+            <template v-else>
+              需更多周期数据判断趋势
             </template>
           </span>
         </div>
@@ -389,17 +403,17 @@ const hovered = (p: TrendPoint) =>
             painTrendLabel
           }}</span>
           <span class="trend-desc">
-            近 3 周期平均 {{ stats.recent3PainAvg }} 分
+            近期平均 {{ stats.recent3PainAvg }} 分
             <template v-if="stats.older3PainAvg !== stats.recent3PainAvg">
-              vs 之前 {{ stats.older3PainAvg }} 分
+              vs 前期 {{ stats.older3PainAvg }} 分
             </template>
           </span>
         </div>
       </div>
 
-      <div v-if="!hasEnoughData && trendPoints.length > 0" class="hint-row">
+      <div v-if="!hasEnoughCycleData && trendPoints.length > 0" class="hint-row">
         <AlertCircle :size="11" color="#9d4edd" />
-        <span>再记录 1 次经期即可查看趋势连线</span>
+        <span>再记录 1 次经期即可查看周期长度趋势连线</span>
       </div>
     </section>
   </div>

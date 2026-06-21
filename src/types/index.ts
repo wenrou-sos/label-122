@@ -41,7 +41,7 @@ export interface AppSettings {
 export interface CycleHistoryItem {
   startDate: string;
   duration: number;
-  cycleLength: number;
+  cycleLength: number | null;
   avgPainLevel: number;
 }
 

@@ -145,7 +145,7 @@ export const usePeriodStore = defineStore('period', () => {
     const result: CycleHistoryItem[] = cycles.map((c, idx) => {
       const duration = diffDays(c.start, c.days[c.days.length - 1]) + 1;
       const prevStart = idx > 0 ? cycles[idx - 1].start : null;
-      const cycleLength = prevStart ? diffDays(prevStart, c.start) : settings.value.avgCycleLength;
+      const cycleLength = prevStart ? diffDays(prevStart, c.start) : null;
       const avgPain =
         c.days.reduce((sum, d) => sum + (records.value[d]?.symptoms.cramp ?? 0), 0) /
         c.days.length;

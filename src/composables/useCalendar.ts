@@ -105,16 +105,20 @@ export const useCalendar = (year: () => number, month: () => number) => {
     };
 
     const avgCycleLength = (() => {
-      const cycles = store.history;
+      const cycles = store.history.filter((c) => c.cycleLength !== null);
       if (cycles.length === 0) return store.settings.avgCycleLength;
       const latest = cycles.slice(-3);
-      return Math.round(latest.reduce((s, c) => s + c.cycleLength, 0) / latest.length);
+      return Math.round(
+        latest.reduce((s, c) => s + (c.cycleLength as number), 0) / latest.length,
+      );
     })();
 
     const regularity = (() => {
-      const cycles = store.history.slice(-4);
+      const cycles = store.history
+        .filter((c) => c.cycleLength !== null)
+        .slice(-4);
       if (cycles.length < 3) return 'stable' as const;
-      const lengths = cycles.map((c) => c.cycleLength);
+      const lengths = cycles.map((c) => c.cycleLength as number);
       const avg = lengths.reduce((a, b) => a + b, 0) / lengths.length;
       const variance =
         lengths.reduce((s, l) => s + (l - avg) ** 2, 0) / lengths.length;
