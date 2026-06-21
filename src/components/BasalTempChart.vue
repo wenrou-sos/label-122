@@ -36,9 +36,15 @@ const tempDomain = computed(() => {
   };
 });
 
-const xFor = (idx: number, total: number) => {
-  if (total <= 1) return PAD_L + PLOT_W / 2;
-  return PAD_L + (idx / (total - 1)) * PLOT_W;
+const xFor = (date: string, firstDate: string, lastDate: string) => {
+  const first = parseDate(firstDate);
+  const last = parseDate(lastDate);
+  const target = parseDate(date);
+  const totalDays = last.diff(first, 'day');
+  if (totalDays <= 0) return PAD_L + PLOT_W / 2;
+  const dayDiff = target.diff(first, 'day');
+  const ratio = Math.max(0, Math.min(1, dayDiff / totalDays));
+  return PAD_L + ratio * PLOT_W;
 };
 
 const yFor = (temp: number) => {
@@ -46,14 +52,18 @@ const yFor = (temp: number) => {
   return PAD_T + PLOT_H - ((temp - min) / (max - min)) * PLOT_H;
 };
 
-const plotPoints = computed(() =>
-  currentCycleTemps.value.map((t, i) => ({
-    x: xFor(i, currentCycleTemps.value.length),
+const plotPoints = computed(() => {
+  const pts = currentCycleTemps.value;
+  if (pts.length === 0) return [];
+  const firstDate = pts[0].date;
+  const lastDate = pts[pts.length - 1].date;
+  return pts.map((t) => ({
+    x: xFor(t.date, firstDate, lastDate),
     y: yFor(t.temp),
     date: t.date,
     temp: t.temp,
-  })),
-);
+  }));
+});
 
 const buildLinePath = (pts: { x: number; y: number }[]): string => {
   if (pts.length < 2) return '';
@@ -79,12 +89,13 @@ const yTickValues = computed(() => {
 const xLabels = computed(() => {
   const pts = currentCycleTemps.value;
   if (pts.length === 0) return [];
+  const firstDate = pts[0].date;
+  const lastDate = pts[pts.length - 1].date;
   const step = Math.max(1, Math.floor(pts.length / 6));
   return pts
     .filter((_, i) => i % step === 0 || i === pts.length - 1)
-    .map((p, i, arr) => ({
-      x: xFor(p === arr[0] ? 0 : p === arr[arr.length - 1] ? currentCycleTemps.value.length - 1 : (i * step),
-        currentCycleTemps.value.length),
+    .map((p) => ({
+      x: xFor(p.date, firstDate, lastDate),
       label: (() => {
         const d = parseDate(p.date);
         return `${d.month() + 1}/${d.date()}`;
@@ -102,12 +113,15 @@ const coverlineY = computed(() => {
 
 const ovulationMarker = computed(() => {
   const ovuDate = ovulationFromTemp.value.ovulationDate;
-  if (!ovuDate) return null;
-  const idx = currentCycleTemps.value.findIndex((t) => t.date === ovuDate);
+  const pts = currentCycleTemps.value;
+  if (!ovuDate || pts.length === 0) return null;
+  const firstDate = pts[0].date;
+  const lastDate = pts[pts.length - 1].date;
+  const idx = pts.findIndex((t) => t.date === ovuDate);
   if (idx < 0) return null;
   return {
-    x: xFor(idx, currentCycleTemps.value.length),
-    y: yFor(currentCycleTemps.value[idx].temp),
+    x: xFor(ovuDate, firstDate, lastDate),
+    y: yFor(pts[idx].temp),
     date: ovuDate,
   };
 });
@@ -116,15 +130,14 @@ const predictedOvuMarker = computed(() => {
   const ovuDate = prediction.value.ovulationDay;
   const pts = currentCycleTemps.value;
   if (pts.length === 0) return null;
-  const firstDate = parseDate(pts[0].date);
-  const lastDate = parseDate(pts[pts.length - 1].date);
+  const firstDate = pts[0].date;
+  const lastDate = pts[pts.length - 1].date;
+  const first = parseDate(firstDate);
+  const last = parseDate(lastDate);
   const ovu = parseDate(ovuDate);
-  if (ovu.isBefore(firstDate) || ovu.isAfter(lastDate.add(5, 'day'))) return null;
-  const totalDays = pts.length - 1;
-  const dayDiff = ovu.diff(firstDate, 'day');
-  const ratio = Math.max(0, Math.min(1, dayDiff / totalDays));
+  if (ovu.isBefore(first) || ovu.isAfter(last.add(5, 'day'))) return null;
   return {
-    x: PAD_L + ratio * PLOT_W,
+    x: xFor(ovuDate, firstDate, lastDate),
     date: ovuDate,
   };
 });

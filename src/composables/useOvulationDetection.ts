@@ -18,13 +18,16 @@ export const useOvulationDetection = () => {
   const currentCycleTemps = computed<{ date: string; temp: number }[]>(() => {
     const records = store.records;
     const lastPeriodStart = store.settings.lastPeriodStart;
-    if (!lastPeriodStart) return [];
 
     const temps: { date: string; temp: number }[] = [];
     Object.keys(records).forEach((date) => {
       const rec = records[date];
       if (rec?.basalTemp !== undefined && rec.basalTemp > 0) {
-        if (parseDate(date).isAfter(parseDate(lastPeriodStart).subtract(1, 'day'), 'day')) {
+        if (lastPeriodStart) {
+          if (parseDate(date).isAfter(parseDate(lastPeriodStart).subtract(1, 'day'), 'day')) {
+            temps.push({ date, temp: rec.basalTemp });
+          }
+        } else {
           temps.push({ date, temp: rec.basalTemp });
         }
       }
